@@ -40,14 +40,24 @@
       <div id="lista" class="grade"></div>
       <p id="vazio" class="ajuda" hidden>Nenhum jogo ainda. Cole um link da Steam acima.</p>
 
-      <details id="bloco-comprados">
-        <summary>Comprados</summary>
-        <div id="lista-comprados" class="grade"></div>
-      </details>
+      <div id="bloco-reviews" hidden>
+        <div class="barra"><h2>Reviews</h2></div>
+        <p class="ajuda">Jogos que todo mundo que deu 👍 já tem. Abra um jogo para avaliar.</p>
+        <div id="lista-reviews" class="grade"></div>
+      </div>
     </section>
 
     <p id="mensagem" class="mensagem" role="status" hidden></p>
   </main>
+
+  <!-- Tela de detalhes do jogo -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-fundo" data-acao="fechar"></div>
+    <div class="modal-corpo" role="dialog" aria-modal="true" aria-label="Detalhes do jogo">
+      <button class="fechar" data-acao="fechar" aria-label="Fechar">✕</button>
+      <div id="modal-conteudo"></div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
