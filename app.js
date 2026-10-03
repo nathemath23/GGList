@@ -11,7 +11,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw_zU5IVqbycYB3-1cUAVYN
 //   aberto: id do jogo aberto no painel de detalhes (ou null)
 //   det:    detalhes já carregados (Steam + IsThereAnyDeal), por id de jogo
 const estado = {
-  ordem: 'padrao', telefone: '', nome: '', membros: [], jogos: [], aba: 'ativos', aberto: null, det: {} };
+  ordem: 'padrao', telefone: '', nome: '', membros: [], jogos: [], aba: 'todos', aberto: null, det: {}, lojasAberto: false, tentativas: {}, ocupado: false };
 
 const TEXTO_DICA_POSSE =
   'Sinaliza se você já tem este jogo. Quem já tem não recebe alerta de preço. ' +
@@ -190,7 +190,7 @@ function normalizarJogos(lista) {
   return (lista || []).map((j) => Object.assign({
     votos_up: [], votos_down: [], meu_voto: 0, meu_alvo: null, alvos_qtd: 0, alvos: [],
     historico: [], alvo_medio: null, nomes_tem: [], meu_tem: false, todos_tem: false,
-    reviews: [], nota_media: null, minha_review: null, consoles: [], multiplayer: ''
+    reviews: [], nota_media: null, minha_review: null, consoles: [], multiplayer: '', status: 'ok', erro: ''
   }, j));
 }
 
@@ -262,7 +262,7 @@ function desenhar() {
   $('sb-membros-lista').innerHTML = estado.membros.map((n) =>
     `<div class="membro-linha">${avatar(n, 28)}<span>${esc(n.split(' ')[0])}</span></div>`).join('');
   document.querySelectorAll('.nav-item').forEach((b) => {
-    b.classList.toggle('ativo', b.dataset.aba === (estado.aba === 'reviews' ? 'reviews' : 'ativos'));
+    b.classList.toggle('ativo', b.dataset.aba === (estado.aba === 'reviews' ? 'reviews' : 'todos'));
   });
   const nReviews = estado.jogos.filter((j) => j.todos_tem).length;
   $('badge-reviews').hidden = nReviews === 0;
@@ -300,10 +300,12 @@ function cartao(j) {
           data-acao="abrir" data-id="${esc(j.id)}" aria-label="Abrir detalhes de ${esc(j.nome)}">
     <div class="poster">
       ${imgPoster(j)}
+      ${j.status === 'pendente' ? `<div class="poster-carregando">${(estado.tentativas[j.id] || 0) < MAX_TENTATIVAS
+        ? '<div class="spinner"></div><span>Carregando…</span>' : '<span>⚠ Não carregou</span><span class="mini">Abra para ver o erro</span>'}</div>` : ''}
       ${j.todos_tem ? `<div class="poster-todos"><div class="pilula-verde">Todos têm${j.nota_media !== null ? ' · ★ ' + notaFmt(j.nota_media) : ''}</div></div>` : ''}
       ${alerta ? `<div class="selo-alerta ${alerta}">${faisca(14, corAlerta, true)}</div>` : ''}
       ${j.meu_tem && !j.todos_tem ? '<div class="selo-tenho">📥 Você tem</div>' : ''}
-      ${!j.todos_tem && meta !== null
+      ${j.status !== 'pendente' && !j.todos_tem && meta !== null
         ? `<div class="poster-barra"><div class="trilho"><div class="progresso ${classeProgresso(p)}" style="width:${p}%"></div></div></div>` : ''}
     </div>
     <div class="card-info">
@@ -368,7 +370,7 @@ function renderPainel() {
     pHero(j) +
     `<div class="painel-corpo">` +
       pAlerta(j) + pInfo(j, det) + pProgresso(j) + pPosse(j) + pVotos(j) + pAlvos(j) +
-      pHistorico(j) + pLojas(j, det) + pReview(j) +
+      pHistorico(j) + pItad(j, det) + pLojas(j, det) + pReview(j) +
     `</div>`;
 
   const novo = document.querySelector('.painel-corpo');
@@ -420,13 +422,14 @@ function pInfo(j, det) {
   let extra = '';
   if (det.carregando) extra = '<p class="descricao">Carregando detalhes…</p>';
   else if (det.erro) extra = `<p class="erro-texto" style="margin-top:12px">${esc(det.erro)}</p>`;
-  else if (!s) extra = `<p class="erro-texto" style="margin-top:12px">${esc(det.steam_erro || 'Sem dados da Steam.')}</p>`;
+  else if (!s) extra = `<p class="erro-texto" style="margin-top:12px">${esc(det.steam_erro || j.erro || 'Sem dados da Steam.')}</p>`;
   else {
     const pcs = [s.pc.windows && 'Windows', s.pc.mac && 'Mac', s.pc.linux && 'Linux'].filter(Boolean);
     extra = `
       <div class="generos">${s.generos.map((g) => `<span class="genero">${esc(g)}</span>`).join('')}</div>
       <p class="descricao">${esc(decodificar(s.descricao))}</p>
-      <p class="descricao">${s.desenvolvedoras.length ? esc(s.desenvolvedoras.join(', ')) + ' · ' : ''}PC: ${esc(pcs.join(', ') || '—')}</p>`;
+      <p class="descricao">${s.desenvolvedoras.length ? esc(s.desenvolvedoras.join(', ')) + ' · ' : ''}PC: ${esc(pcs.join(', ') || '—')}</p>
+      ${det.steam_erro ? `<p class="erro-texto">Não consegui atualizar agora (${esc(det.steam_erro)}). Mostrando os dados salvos.</p>` : ''}`;
   }
 
   return `
@@ -454,8 +457,16 @@ function pInfo(j, det) {
     ${extra}
     <div class="acoes-linha">
       <a class="botao-link" href="${esc(seguro(j.loja_url))}" target="_blank" rel="noopener">Ver na Steam ↗</a>
-      <button class="btn btn-sec btn-mini" data-acao="atualizar-det">Atualizar dados</button>
+      <button class="btn btn-sec btn-mini" data-acao="atualizar-det">↻ Recarregar dados</button>
     </div>
+    ${det.buscado_em ? `<p class="texto-mudo">Dados salvos em ${esc(dataBR(det.buscado_em))}. Os preços são atualizados 1 vez por dia.</p>` : ''}
+    <details class="editar-link" ${j.status === 'pendente' ? 'open' : ''}>
+      <summary>Editar link da Steam</summary>
+      <div class="campos">
+        <input id="novo-link" type="url" value="${esc(seguro(j.loja_url))}" placeholder="https://store.steampowered.com/app/...">
+        <button class="btn btn-mini" data-acao="editar-link">Salvar e tentar</button>
+      </div>
+    </details>
   </div>`;
 }
 
@@ -615,10 +626,28 @@ function blocoConsole(j, det, plataforma, rotulo) {
 }
 
 function pLojas(j, det) {
+  const resumo = ['playstation', 'switch', 'xbox'].map((pl) => {
+    const c = j.consoles.find((x) => x.plataforma === pl);
+    return c && c.preco_centavos !== null ? `${NOMES_PLAT[pl]} ${reais(c.preco_centavos)}` : '';
+  }).filter(Boolean);
+  return `
+  <details id="det-lojas" class="bloco retratil" ${estado.lojasAberto ? 'open' : ''}>
+    <summary><span class="rotulo" style="margin:0">Preços nas lojas</span>
+      <span class="resumo-lojas">Steam ${reais(j.preco_atual_centavos)}${resumo.length ? ' · ' + resumo.join(' · ') : ''}</span></summary>
+    <div class="linha-preco"><span>Steam (PC)</span><span><b>${reais(j.preco_atual_centavos)}</b></span></div>
+    <div class="sub-titulo">Consoles</div>
+    ${blocoConsole(j, det, 'playstation', 'PlayStation')}
+    ${blocoConsole(j, det, 'switch', 'Nintendo Switch')}
+    ${blocoConsole(j, det, 'xbox', 'Xbox')}
+  </details>`;
+}
+
+function pItad(j, det) {
   let ofertas = '';
-  if (det.carregando) ofertas = '<p class="ajuda-texto">Consultando o IsThereAnyDeal…</p>';
-  else if (det.itad && det.itad.erro) ofertas = `<p class="erro-texto">Não consegui consultar agora: ${esc(det.itad.erro)}</p>`;
-  else if (det.itad) {
+  if (det.carregando) ofertas = '<p class="ajuda-texto">Carregando…</p>';
+  else if (!det.itad) ofertas = '<p class="ajuda-texto">Ainda sem dados. Clique em "Recarregar dados" na parte de cima.</p>';
+  else if (det.itad.erro) ofertas = `<p class="erro-texto">Não consegui consultar agora: ${esc(det.itad.erro)}</p>`;
+  else {
     const it = det.itad;
     ofertas = (it.ofertas.map((o, i) => {
       const link = seguro(o.url);
@@ -629,25 +658,15 @@ function pLojas(j, det) {
       (it.menor_historico !== null && it.menor_historico !== undefined
         ? `<p class="texto-mudo">Menor preço histórico: ${reais(it.menor_historico)}. Só lojas de PC.</p>` : '');
   }
-
   return `
   <div class="bloco">
-    <span class="rotulo">Preços nas lojas</span>
-    <div class="linha-preco"><span>Steam (PC)</span><span><b>${reais(j.preco_atual_centavos)}</b></span></div>
-    <div class="sub-titulo">Consoles</div>
-    ${blocoConsole(j, det, 'playstation', 'PlayStation')}
-    ${blocoConsole(j, det, 'switch', 'Nintendo Switch')}
-    ${blocoConsole(j, det, 'xbox', 'Xbox')}
-    <div class="sub-titulo">Onde está mais barato (IsThereAnyDeal)</div>
+    <span class="rotulo">Onde está mais barato (IsThereAnyDeal)</span>
     ${ofertas}
   </div>`;
 }
 
 function pReview(j) {
-  if (!j.meu_tem) return '';
-  if (!j.todos_tem) {
-    return `<div class="bloco-verde-texto"><b>✓ Você já tem este jogo</b><span>As avaliações abrem quando todos que deram 👍 tiverem.</span></div>`;
-  }
+  if (!j.meu_tem && j.reviews.length === 0) return '';
   const minha = j.minha_review;
   const nota = minha ? minha.nota : 0;
   const outras = j.reviews.filter((r) => r.nome !== estado.nome).map((r) => `
@@ -656,14 +675,7 @@ function pReview(j) {
         <span class="nota">★ ${notaFmt(r.nota)}</span></div>
       ${r.comentario ? `<p>${esc(r.comentario)}</p>` : ''}
     </div>`).join('');
-  return `
-  <div class="bloco verde">
-    <div class="bloco-cab">
-      <div><span class="rotulo" style="margin:0">Avaliação do grupo</span>
-        <span class="texto-mudo" style="display:block;margin:0">${j.reviews.length} avaliações</span></div>
-      <div class="nota-grande">★ ${j.nota_media !== null ? notaFmt(j.nota_media) : '—'}</div>
-    </div>
-    ${outras}
+  const form = j.meu_tem ? `
     <div class="review-form">
       <div class="minha-nota-topo"><label for="my-rating">Minha nota</label>
         <span id="rev-valor">${nota ? '★ ' + notaFmt(nota) : 'Sem nota'}</span></div>
@@ -672,7 +684,16 @@ function pReview(j) {
       <textarea class="rev-texto" rows="3" maxlength="500" placeholder="Conte ao grupo o que achou...">${esc(minha ? minha.comentario : '')}</textarea>
       <button id="rev-salvar" class="btn" data-acao="salvar-review" ${nota ? '' : 'disabled'}>${minha ? 'Atualizar avaliação' : 'Publicar avaliação'}</button>
       ${minha ? '<button class="btn btn-sec btn-mini" data-acao="apagar-review">Apagar minha avaliação</button>' : ''}
+    </div>` : '<p class="texto-mudo">Marque 📥 "Já tenho" para dar a sua nota.</p>';
+  return `
+  <div class="bloco verde">
+    <div class="bloco-cab">
+      <div><span class="rotulo" style="margin:0">Avaliação do grupo</span>
+        <span class="texto-mudo" style="display:block;margin:0">${j.reviews.length} ${j.reviews.length === 1 ? 'avaliação' : 'avaliações'} · média das notas de cada membro</span></div>
+      <div class="nota-grande">★ ${j.nota_media !== null ? notaFmt(j.nota_media) : '—'}</div>
     </div>
+    ${outras}
+    ${form}
   </div>`;
 }
 
@@ -684,8 +705,12 @@ async function executar(acao, dados, textoOk) {
     const r = await chamarApi(acao, dados);
     estado.jogos = normalizarJogos(r.jogos);
     desenhar();
-    if (textoOk) mostrarMensagem(textoOk, 'ok');
-    return true;
+    if (r.detalhes && r.detalhes.pendente) {
+      mostrarMensagem('Jogo adicionado, mas a Steam não respondeu agora. Vou tentar de novo sozinho.', 'ok');
+    } else if (textoOk) {
+      mostrarMensagem(textoOk, 'ok');
+    }
+    return r;
   } catch (e) {
     mostrarMensagem(e.message, 'erro');
     return false;
@@ -739,7 +764,7 @@ $('form-adicionar').addEventListener('submit', async (ev) => {
   if (ok) {
     $('url-steam').value = '';
     fecharAdd();
-    estado.aba = 'ativos';
+    estado.aba = 'todos';
     desenhar();
   }
   botao.disabled = false;
@@ -798,6 +823,18 @@ async function acaoPainel(botao, acao) {
     case 'remover-console':
       await executar('removerConsole', { jogoId, plataforma }, 'Removido.');
       break;
+    case 'editar-link': {
+      botao.disabled = true;
+      botao.textContent = 'Tentando...';
+      estado.tentativas[jogoId] = 0;
+      const r = await executar('editarLinkJogo', { jogoId, url: document.getElementById('novo-link').value });
+      if (r) {
+        if (r.detalhes && r.detalhes.pendente) estado.det[jogoId] = { steam_erro: r.detalhes.erro, steam: null, itad: null };
+        else delete estado.det[jogoId];
+        await abrirDetalhes(jogoId, false);
+      }
+      break;
+    }
     case 'buscar-xbox':
       botao.disabled = true;
       botao.textContent = 'Buscando...';
@@ -853,6 +890,29 @@ document.addEventListener('click', async (ev) => {
       break;
   }
 });
+
+// Lembra se o bloco "Preços nas lojas" está aberto (a tela é redesenhada ao salvar)
+document.addEventListener('toggle', (ev) => {
+  if (ev.target && ev.target.id === 'det-lojas') estado.lojasAberto = ev.target.open;
+}, true);
+
+// Jogos "pendentes" (a Steam falhou): tenta carregar um por vez, de tempos em tempos
+const MAX_TENTATIVAS = 6;
+async function tentarPendentes() {
+  if (estado.ocupado || $('tela-app').hidden) return;
+  const alvo = estado.jogos.find((j) => j.status === 'pendente' && (estado.tentativas[j.id] || 0) < MAX_TENTATIVAS);
+  if (!alvo) return;
+  estado.ocupado = true;
+  estado.tentativas[alvo.id] = (estado.tentativas[alvo.id] || 0) + 1;
+  try {
+    const r = await chamarApi('detalhes', { jogoId: alvo.id, forcar: true });
+    estado.jogos = normalizarJogos(r.jogos);
+    estado.det[alvo.id] = r.detalhes;
+  } catch (e) { /* tenta de novo mais tarde */ }
+  estado.ocupado = false;
+  desenhar();
+}
+setInterval(tentarPendentes, 20000);
 
 // ---------- Início ----------
 
