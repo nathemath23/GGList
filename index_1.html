@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GGList</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topo">
+    <h1>GGList</h1>
+    <div id="usuario" class="usuario" hidden>
+      <span id="nome-usuario"></span>
+      <button id="btn-sair" class="link">Sair</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Tela de entrada -->
+    <section id="tela-login" class="cartao">
+      <h2>Entrar</h2>
+      <p class="ajuda">Digite o telefone (com DDD) que está na lista do grupo.</p>
+      <form id="form-login">
+        <input id="telefone" type="tel" inputmode="numeric" placeholder="11 99999-8888" autocomplete="tel" required>
+        <button type="submit">Entrar</button>
+      </form>
+    </section>
+
+    <!-- Tela principal -->
+    <section id="tela-app" hidden>
+      <form id="form-adicionar" class="cartao linha">
+        <input id="url-steam" type="url" placeholder="Cole o link do jogo na Steam" required>
+        <button type="submit">Adicionar</button>
+      </form>
+
+      <div class="barra">
+        <h2>Na lista</h2>
+        <button id="btn-atualizar" class="link">Recarregar</button>
+      </div>
+      <div id="lista" class="grade"></div>
+      <p id="vazio" class="ajuda" hidden>Nenhum jogo ainda. Cole um link da Steam acima.</p>
+
+      <details id="bloco-comprados">
+        <summary>Comprados</summary>
+        <div id="lista-comprados" class="grade"></div>
+      </details>
+    </section>
+
+    <p id="mensagem" class="mensagem" role="status" hidden></p>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
