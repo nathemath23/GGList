@@ -246,6 +246,12 @@ input[type=range] { width: 100%; accent-color: var(--ambar); }
 }
 .toolbar-esq { display: flex; align-items: center; gap: 24px; min-width: 0; flex-wrap: wrap; }
 .toolbar-dir { display: flex; align-items: center; gap: 10px; }
+.ordenar { display: flex; flex-direction: column; gap: 3px; margin: 0; }
+.ordenar .rotulo { margin: 0; }
+.ordenar select {
+  background: var(--superficie); color: var(--texto); font: inherit; font-size: 13px;
+  border: 1px solid rgba(255,255,255,.12); border-radius: 8px; padding: 7px 10px; cursor: pointer;
+}
 .toolbar h1 { font-family: var(--fonte-display); font-weight: 800; font-size: 24px; line-height: 1.1; }
 .toolbar-membros { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .pilula-alerta {
