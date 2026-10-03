@@ -4,60 +4,127 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GGList</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topo">
-    <h1>GGList</h1>
-    <div id="usuario" class="usuario" hidden>
-      <span id="nome-usuario"></span>
-      <button id="btn-sair" class="link">Sair</button>
+
+  <!-- ============ Tela de entrada ============ -->
+  <div id="tela-login" class="login">
+    <div class="login-capa" aria-hidden="true">
+      <div id="colagem" class="colagem"></div>
+      <div class="login-degrade"></div>
+      <p class="login-frase">"Finalmente um jeito de o grupo decidir junto."</p>
     </div>
-  </header>
-
-  <main>
-    <!-- Tela de entrada -->
-    <section id="tela-login" class="cartao">
-      <h2>Entrar</h2>
-      <p class="ajuda">Digite o telefone (com DDD) que está na lista do grupo.</p>
+    <div class="login-painel fade-in">
+      <div class="logo logo-grande">
+        <svg class="sparkle-anim" width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 2L13.8 9.2L21 8.5L15.5 13.2L18.5 20.5L12 16.8L5.5 20.5L8.5 13.2L3 8.5L10.2 9.2Z" fill="#7c3aed"/></svg>
+        <span>GGLIST</span>
+      </div>
+      <h1>Bem-vindo de volta</h1>
+      <p class="login-sub">Entre com o celular que está na lista do grupo.</p>
       <form id="form-login">
-        <input id="telefone" type="tel" inputmode="numeric" placeholder="11 99999-8888" autocomplete="tel" required>
-        <button type="submit">Entrar</button>
+        <label class="rotulo" for="telefone">Número de celular</label>
+        <input id="telefone" type="tel" inputmode="tel" placeholder="(11) 99999-9999" autocomplete="tel" required>
+        <button type="submit" class="btn btn-grande">Entrar →</button>
       </form>
-    </section>
-
-    <!-- Tela principal -->
-    <section id="tela-app" hidden>
-      <form id="form-adicionar" class="cartao linha">
-        <input id="url-steam" type="url" placeholder="Cole o link do jogo na Steam" required>
-        <button type="submit">Adicionar</button>
-      </form>
-
-      <div class="barra">
-        <h2>Na lista</h2>
-        <button id="btn-atualizar" class="link">Recarregar</button>
-      </div>
-      <div id="lista" class="grade"></div>
-      <p id="vazio" class="ajuda" hidden>Nenhum jogo ainda. Cole um link da Steam acima.</p>
-
-      <div id="bloco-reviews" hidden>
-        <div class="barra"><h2>Reviews</h2></div>
-        <p class="ajuda">Jogos que todo mundo que deu 👍 já tem. Abra um jogo para avaliar.</p>
-        <div id="lista-reviews" class="grade"></div>
-      </div>
-    </section>
-
-    <p id="mensagem" class="mensagem" role="status" hidden></p>
-  </main>
-
-  <!-- Tela de detalhes do jogo -->
-  <div id="modal" class="modal" hidden>
-    <div class="modal-fundo" data-acao="fechar"></div>
-    <div class="modal-corpo" role="dialog" aria-modal="true" aria-label="Detalhes do jogo">
-      <button class="fechar" data-acao="fechar" aria-label="Fechar">✕</button>
-      <div id="modal-conteudo"></div>
     </div>
   </div>
+
+  <!-- ============ App ============ -->
+  <div id="tela-app" class="app" hidden>
+
+    <aside class="sidebar">
+      <div class="logo">
+        <svg class="sparkle-anim" width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2L13.8 9.2L21 8.5L15.5 13.2L18.5 20.5L12 16.8L5.5 20.5L8.5 13.2L3 8.5L10.2 9.2Z" fill="#7c3aed"/></svg>
+        <span>GGLIST</span>
+      </div>
+
+      <div class="sb-membros">
+        <p class="rotulo">Membros</p>
+        <div id="sb-membros-lista"></div>
+      </div>
+
+      <nav class="sb-nav">
+        <button class="nav-item" data-acao="nav" data-aba="ativos"><span class="nav-icone">▦</span><span>Galeria</span></button>
+        <button class="nav-item" data-acao="nav" data-aba="reviews"><span class="nav-icone">★</span><span>Reviews</span><span id="badge-reviews" class="badge" hidden></span></button>
+      </nav>
+
+      <div class="sb-usuario">
+        <div id="sb-avatar"></div>
+        <div class="sb-usuario-info">
+          <div id="nome-usuario" class="sb-nome"></div>
+          <button id="btn-sair" class="link-discreto">Sair</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="principal">
+      <header class="toolbar">
+        <div class="toolbar-esq">
+          <div>
+            <h1>Lista do grupo</h1>
+            <div class="toolbar-membros">
+              <div id="tb-avatares" class="avatares"></div>
+              <span id="tb-membros-texto" class="texto-suave"></span>
+              <span id="tb-alertas" class="pilula-alerta" hidden></span>
+            </div>
+          </div>
+          <div class="abas" role="tablist">
+            <button class="aba" data-acao="aba" data-aba="ativos">Ativos</button>
+            <button class="aba" data-acao="aba" data-aba="reviews">Reviews</button>
+            <button class="aba" data-acao="aba" data-aba="todos">Todos</button>
+          </div>
+        </div>
+        <div class="toolbar-dir">
+          <button id="btn-atualizar" class="btn btn-sec" data-acao="recarregar" title="Recarregar a lista">↻</button>
+          <button class="btn" data-acao="abrir-add"><span class="mais">+</span> Adicionar jogo</button>
+        </div>
+      </header>
+
+      <div class="galeria">
+        <div id="lista" class="grade"></div>
+        <div id="vazio" class="vazio" hidden>
+          <div class="vazio-icone">🎮</div>
+          <div class="vazio-titulo">Nenhum jogo aqui</div>
+          <p id="vazio-texto">Cole o link de um jogo da Steam e o grupo vota se vale comprar.</p>
+          <button class="btn" data-acao="abrir-add">Adicionar primeiro jogo</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Painel de detalhes do jogo -->
+    <aside id="painel" class="painel" hidden>
+      <div id="painel-conteudo"></div>
+    </aside>
+  </div>
+
+  <!-- Modal: adicionar jogo -->
+  <div id="modal-add" class="overlay" hidden>
+    <div class="overlay-fundo" data-acao="fechar-add"></div>
+    <div class="modal fade-in" role="dialog" aria-modal="true" aria-labelledby="titulo-add">
+      <div class="modal-topo">
+        <div>
+          <h2 id="titulo-add">Adicionar jogo</h2>
+          <p class="texto-suave">Cole o link do jogo na Steam e o grupo decide</p>
+        </div>
+        <button class="fechar" data-acao="fechar-add" aria-label="Fechar">×</button>
+      </div>
+      <form id="form-adicionar" class="modal-corpo">
+        <label class="rotulo" for="url-steam">Link do jogo</label>
+        <input id="url-steam" type="url" placeholder="https://store.steampowered.com/app/..." required>
+        <p class="texto-mudo">Nome, capa e preço em reais vêm direto da Steam.</p>
+        <div class="modal-botoes">
+          <button type="button" class="btn btn-sec" data-acao="fechar-add">Cancelar</button>
+          <button type="submit" class="btn">Adicionar ao grupo →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <p id="mensagem" class="mensagem" role="status" hidden></p>
 
   <script src="app.js"></script>
 </body>
