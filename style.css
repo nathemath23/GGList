@@ -590,3 +590,34 @@ input[type=range] { width: 100%; accent-color: var(--ambar); }
   .console .campos { grid-template-columns: 1fr; }
   .toolbar-dir .btn:not(.btn-sec) { padding: 10px 14px; }
 }
+
+
+/* ---- Card carregando (jogo pendente) ---- */
+.poster-carregando {
+  position: absolute; inset: 0; z-index: 3; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 8px;
+  background: rgba(7, 7, 12, 0.72); font-size: 13px; text-align: center; padding: 8px;
+}
+.poster-carregando .mini { font-size: 11px; opacity: .7; }
+.spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid rgba(167, 139, 250, .25); border-top-color: var(--violeta-claro);
+  animation: girar 0.9s linear infinite;
+}
+@keyframes girar { to { transform: rotate(360deg); } }
+
+/* ---- Blocos retráteis e edição de link ---- */
+.retratil > summary {
+  list-style: none; cursor: pointer; display: flex; flex-direction: column; gap: 4px; position: relative; padding-right: 22px;
+}
+.retratil > summary::-webkit-details-marker { display: none; }
+.retratil > summary::after {
+  content: '▾'; position: absolute; right: 0; top: 0; color: var(--violeta-claro); transition: transform .15s;
+}
+.retratil:not([open]) > summary::after { transform: rotate(-90deg); }
+.retratil[open] > summary { margin-bottom: 12px; }
+.resumo-lojas { font-size: 12px; opacity: .7; }
+.editar-link { margin-top: 10px; }
+.editar-link summary { cursor: pointer; font-size: 12px; color: var(--violeta-claro); }
+.editar-link .campos { display: flex; gap: 8px; margin-top: 8px; }
+.editar-link input { flex: 1; min-width: 0; }
