@@ -79,6 +79,18 @@
           </div>
         </div>
         <div class="toolbar-dir">
+          <label class="ordenar">
+            <span class="rotulo">Ordenar</span>
+            <select id="ordem" aria-label="Ordenar jogos">
+              <option value="padrao">Padrão (recentes)</option>
+              <option value="nome">Nome (A–Z)</option>
+              <option value="nome-desc">Nome (Z–A)</option>
+              <option value="preco-asc">Preço (menor)</option>
+              <option value="preco-desc">Preço (maior)</option>
+              <option value="likes">Mais 👍 do grupo</option>
+              <option value="donos">Mais pessoas que têm 📥</option>
+            </select>
+          </label>
           <button id="btn-atualizar" class="btn btn-sec" data-acao="recarregar" title="Recarregar a lista">↻</button>
           <button class="btn" data-acao="abrir-add"><span class="mais">+</span> Adicionar jogo</button>
         </div>
