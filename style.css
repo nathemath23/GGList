@@ -7,6 +7,7 @@
   --destaque: #5b8cff;
   --ok: #3ecf8e;
   --ruim: #ff6b6b;
+  --aviso: #f5b84b;
 }
 
 * { box-sizing: border-box; }
@@ -32,6 +33,9 @@ body {
 main { max-width: 960px; margin: 0 auto; padding: 16px; }
 
 h2 { font-size: 1.05rem; margin: 0 0 8px; }
+h3 { margin: 0; }
+
+a { color: var(--destaque); }
 
 .cartao {
   background: var(--cartao);
@@ -43,7 +47,7 @@ h2 { font-size: 1.05rem; margin: 0 0 8px; }
 
 .ajuda { color: var(--suave); font-size: 0.9rem; }
 
-input {
+input, textarea, select {
   background: var(--fundo);
   color: var(--texto);
   border: 1px solid var(--borda);
@@ -51,6 +55,7 @@ input {
   padding: 10px;
   font-size: 1rem;
   width: 100%;
+  font-family: inherit;
 }
 
 button {
@@ -61,9 +66,15 @@ button {
   padding: 10px 14px;
   font-size: 0.95rem;
   cursor: pointer;
+  font-family: inherit;
 }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.link { background: none; color: var(--destaque); padding: 4px; }
+button.neutro {
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  color: var(--texto);
+}
 
 .linha { display: flex; gap: 8px; }
 .linha input { flex: 1; }
@@ -80,6 +91,7 @@ button.link { background: none; color: var(--destaque); padding: 4px; }
   margin-bottom: 16px;
 }
 
+/* ---------- Cartão do jogo ---------- */
 .jogo {
   background: var(--cartao);
   border: 1px solid var(--borda);
@@ -88,17 +100,36 @@ button.link { background: none; color: var(--destaque); padding: 4px; }
   display: flex;
   flex-direction: column;
 }
-.jogo img { width: 100%; height: 130px; object-fit: cover; background: #000; }
+.jogo.tenho { opacity: 0.72; }
+.jogo .capa { padding: 0; border-radius: 0; background: #000; display: block; width: 100%; }
+.jogo .capa img { width: 100%; height: 130px; object-fit: cover; display: block; }
 .jogo .corpo { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-.jogo h3 { margin: 0; font-size: 1rem; }
-.jogo h3 a { color: inherit; text-decoration: none; }
+.jogo .titulo {
+  background: none; padding: 0; text-align: left; color: var(--texto);
+  font-size: 1rem; font-weight: 600;
+}
+.jogo .titulo:hover { color: var(--destaque); }
 
 .preco { font-size: 1.15rem; font-weight: 600; }
 .preco small { color: var(--suave); font-weight: 400; margin-left: 6px; }
 .preco .riscado { text-decoration: line-through; }
 
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--borda);
+  background: var(--fundo);
+  color: var(--texto);
+  text-decoration: none;
+}
+.chip.cp { border-color: var(--ok); color: var(--ok); }
+.chip.ps { border-color: #4f7cff; }
+.chip.sw { border-color: #ff5a5a; }
+
 .votos { display: flex; gap: 8px; }
-.votos button {
+.votos button, .toggle {
   flex: 1;
   background: var(--fundo);
   border: 1px solid var(--borda);
@@ -107,6 +138,37 @@ button.link { background: none; color: var(--destaque); padding: 4px; }
 .votos button.ativo.up { border-color: var(--ok); background: rgba(62, 207, 142, 0.15); }
 .votos button.ativo.down { border-color: var(--ruim); background: rgba(255, 107, 107, 0.15); }
 
+.toggle { position: relative; width: 100%; }
+.toggle.ativo { border-color: var(--aviso); background: rgba(245, 184, 75, 0.15); }
+
+/* Dica (tooltip) ao passar o mouse ou focar com o teclado */
+[data-dica] { position: relative; }
+[data-dica]::after {
+  content: attr(data-dica);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 260px;
+  background: #000;
+  color: var(--texto);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s;
+  z-index: 20;
+}
+[data-dica]:hover::after, [data-dica]:focus-visible::after { opacity: 1; visibility: visible; }
+
 .quem { color: var(--suave); font-size: 0.8rem; }
 
 .alvo { display: flex; gap: 8px; }
@@ -114,10 +176,83 @@ button.link { background: none; color: var(--destaque); padding: 4px; }
 
 .grupo { color: var(--suave); font-size: 0.85rem; }
 
-.comprar { background: var(--fundo); border: 1px solid var(--borda); color: var(--suave); }
+.nota { color: var(--aviso); font-weight: 600; }
+.comentario { font-size: 0.85rem; color: var(--suave); }
 
-details { margin-top: 8px; }
-summary { cursor: pointer; color: var(--suave); margin-bottom: 10px; }
+/* ---------- Tela de detalhes ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-fundo { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.7); }
+.modal-corpo {
+  position: relative;
+  background: var(--fundo);
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 720px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: 16px;
+}
+.fechar {
+  position: sticky;
+  top: 0;
+  float: right;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  padding: 4px 10px;
+  z-index: 2;
+}
+.modal h2 { font-size: 1.25rem; }
+.modal .topo-jogo { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.modal .topo-jogo img { width: 100%; max-width: 260px; border-radius: 8px; }
+.modal .topo-jogo .acoes { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.modal section { border-top: 1px solid var(--borda); padding: 12px 0; }
+.modal section h3 { font-size: 1rem; margin-bottom: 8px; }
+
+.botao-link {
+  display: inline-block;
+  background: var(--destaque);
+  color: #fff;
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.linha-preco {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--borda);
+  font-size: 0.95rem;
+}
+.linha-preco:last-child { border-bottom: 0; }
+.linha-preco .melhor { color: var(--ok); font-weight: 600; }
+
+.console { padding: 10px 0; border-bottom: 1px dashed var(--borda); }
+.console:last-child { border-bottom: 0; }
+.console .campos { display: grid; grid-template-columns: 1fr 140px; gap: 8px; margin: 8px 0; }
+.console .botoes { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.etiqueta {
+  font-size: 0.72rem; padding: 1px 6px; border-radius: 6px;
+  border: 1px solid var(--borda); color: var(--suave); margin-left: 6px;
+}
+.aviso-texto { color: var(--aviso); font-size: 0.85rem; }
+.erro-texto { color: var(--ruim); font-size: 0.85rem; }
+
+.review { padding: 6px 0; border-bottom: 1px dashed var(--borda); }
+.review:last-child { border-bottom: 0; }
+.form-review { display: grid; gap: 8px; margin-top: 10px; }
+.form-review select { width: 120px; }
 
 .mensagem {
   position: fixed;
@@ -129,8 +264,13 @@ summary { cursor: pointer; color: var(--suave); margin-bottom: 10px; }
   padding: 10px 16px;
   border-radius: 8px;
   max-width: 90vw;
+  z-index: 100;
 }
 .mensagem.erro { border-color: var(--ruim); }
 .mensagem.ok { border-color: var(--ok); }
 
 [hidden] { display: none !important; }
+
+@media (max-width: 520px) {
+  .console .campos { grid-template-columns: 1fr; }
+}
