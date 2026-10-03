@@ -10,7 +10,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbw_zU5IVqbycYB3-1cUAVYN
 //   aba:    'ativos' | 'reviews' | 'todos'
 //   aberto: id do jogo aberto no painel de detalhes (ou null)
 //   det:    detalhes já carregados (Steam + IsThereAnyDeal), por id de jogo
-const estado = { telefone: '', nome: '', membros: [], jogos: [], aba: 'ativos', aberto: null, det: {} };
+const estado = {
+  ordem: 'padrao', telefone: '', nome: '', membros: [], jogos: [], aba: 'ativos', aberto: null, det: {} };
 
 const TEXTO_DICA_POSSE =
   'Sinaliza se você já tem este jogo. Quem já tem não recebe alerta de preço. ' +
@@ -184,6 +185,15 @@ async function chamarApi(acao, dados = {}) {
   return json;
 }
 
+/** Garante que todo jogo tenha todos os campos (evita erro se o backend for mais antigo). */
+function normalizarJogos(lista) {
+  return (lista || []).map((j) => Object.assign({
+    votos_up: [], votos_down: [], meu_voto: 0, meu_alvo: null, alvos_qtd: 0, alvos: [],
+    historico: [], alvo_medio: null, nomes_tem: [], meu_tem: false, todos_tem: false,
+    reviews: [], nota_media: null, minha_review: null, consoles: [], multiplayer: ''
+  }, j));
+}
+
 // ---------- Login ----------
 
 function montarColagem() {
@@ -219,14 +229,30 @@ function sair() {
 
 async function recarregar() {
   const r = await chamarApi('listar');
-  estado.jogos = r.jogos;
+  estado.jogos = normalizarJogos(r.jogos);
   estado.membros = r.membros || estado.membros;
   desenhar();
 }
 
+const ORDENS = {
+  padrao: null,
+  nome: (a, b) => a.nome.localeCompare(b.nome, 'pt-BR'),
+  'nome-desc': (a, b) => b.nome.localeCompare(a.nome, 'pt-BR'),
+  'preco-asc': (a, b) => precoOrd(a, 1e12) - precoOrd(b, 1e12),
+  'preco-desc': (a, b) => precoOrd(b, -1) - precoOrd(a, -1),
+  likes: (a, b) => b.votos_up.length - a.votos_up.length,
+  donos: (a, b) => b.nomes_tem.length - a.nomes_tem.length
+};
+
+function precoOrd(j, vazio) {
+  return j.preco_atual_centavos === null || j.preco_atual_centavos === undefined ? vazio : j.preco_atual_centavos;
+}
+
 function jogosDaAba() {
-  return estado.jogos.filter((j) =>
+  const lista = estado.jogos.filter((j) =>
     estado.aba === 'todos' ? true : (estado.aba === 'reviews' ? j.todos_tem : !j.todos_tem));
+  const cmp = ORDENS[estado.ordem];
+  return cmp ? lista.slice().sort(cmp) : lista; // sort é estável: empates mantêm a ordem padrão
 }
 
 function desenhar() {
@@ -286,6 +312,7 @@ function cartao(j) {
         <span>👍 ${j.votos_up.length}</span>
         <span>👎 ${j.votos_down.length}</span>
         <span>📥 ${j.nomes_tem.length}</span>
+        ${j.multiplayer === 'SIM' ? '<span data-dica="Tem multijogador (segundo a Steam)">👥</span>' : ''}
       </div>
       <div class="card-precos">
         <div>
@@ -322,7 +349,7 @@ async function abrirDetalhes(id, forcar) {
   desenhar();
   try {
     const r = await chamarApi('detalhes', { jogoId: id, forcar: !!forcar });
-    estado.jogos = r.jogos;
+    estado.jogos = normalizarJogos(r.jogos);
     estado.det[id] = r.detalhes;
   } catch (e) {
     estado.det[id] = { erro: e.message };
@@ -377,11 +404,18 @@ function pAlerta(j) {
     ${a === 'grupo' ? 'Alerta do grupo disparado' : 'Alerta pessoal disparado'}</div>`;
 }
 
+const NOMES_PLAT = { playstation: 'PlayStation', switch: 'Switch', xbox: 'Xbox' };
+
 function pInfo(j, det) {
   const s = det.steam;
-  const cross = s ? s.crossplay : (j.crossplay === 'SIM' ? true : (j.crossplay === 'NAO' ? false : null));
-  const crossTxt = cross === null ? '—' : (cross ? 'Disponível' : 'Não disponível');
-  const crossCls = cross ? 'verde' : 'suave';
+  const multi = s ? s.multiplayer : (j.multiplayer === 'SIM' ? true : (j.multiplayer === 'NAO' ? false : null));
+  const multiTxt = multi === null ? '—' : (multi ? 'Sim' : 'Não');
+  const multiCls = multi ? 'verde' : 'suave';
+  const multiDica = s && s.multi_tipos && s.multi_tipos.length ? s.multi_tipos.join(' · ') : 'Informação da Steam.';
+  const noutras = ['playstation', 'switch', 'xbox']
+    .filter((p) => j.consoles.some((c) => c.plataforma === p))
+    .map((p) => NOMES_PLAT[p]);
+  const disponivel = ['Steam'].concat(noutras).join(', ');
 
   let extra = '';
   if (det.carregando) extra = '<p class="descricao">Carregando detalhes…</p>';
@@ -404,13 +438,13 @@ function pInfo(j, det) {
       </div>
       <div class="dir">
         <div class="mini-rotulo">Disponível em</div>
-        <div class="medio">Steam</div>
+        <div class="medio">${esc(disponivel)}</div>
       </div>
     </div>
     <div class="info-grade">
       <div class="info-celula">
-        <div class="mini-rotulo">Crossplay</div>
-        <div class="v ${crossCls}" ${s || cross !== null ? 'data-dica="A Steam marca se o jogo tem multijogador entre plataformas. Isso não diz com quais plataformas específicas."' : ''}>${crossTxt}</div>
+        <div class="mini-rotulo">Multiplayer</div>
+        <div class="v ${multiCls}" ${multi ? `data-dica="${esc(multiDica)}"` : ''}>${multiTxt}</div>
       </div>
       <div class="info-celula">
         <div class="mini-rotulo">Lançamento</div>
@@ -538,6 +572,12 @@ function pHistorico(j) {
   </div>`;
 }
 
+const PLACEHOLDER_REF = {
+  playstation: 'Link do jogo na PlayStation Store',
+  switch: 'Link da eShop ou NSUID (14 dígitos)',
+  xbox: 'Link da loja Xbox/Microsoft'
+};
+
 function blocoConsole(j, det, plataforma, rotulo) {
   const c = j.consoles.find((x) => x.plataforma === plataforma);
   const buscaUrl = seguro(det && det.busca ? det.busca[plataforma] : '');
@@ -547,26 +587,29 @@ function blocoConsole(j, det, plataforma, rotulo) {
        ${seguro(c.url) ? `<a href="${esc(seguro(c.url))}" target="_blank" rel="noopener">abrir loja ↗</a>` : ''}
        ${c.atualizado_em ? `<span class="ajuda-texto"> · ${esc(dataBR(c.atualizado_em))}</span>` : ''}`
     : '<span class="ajuda-texto">Ainda não cadastrado</span>';
-  const refAtual = c ? (plataforma === 'switch' ? (c.url || c.nsuid) : c.url) : '';
+  const refAtual = c ? (plataforma === 'playstation' ? c.url : (c.url || c.nsuid)) : '';
 
   return `
   <div class="console" data-plataforma="${plataforma}">
     <div><b>${rotulo}</b> — ${resumo}</div>
     <div class="campos">
       <input class="ref" type="text" value="${esc(refAtual)}"
-             placeholder="${plataforma === 'switch' ? 'Link da eShop ou NSUID (14 dígitos)' : 'Link do jogo na PlayStation Store'}">
+             placeholder="${PLACEHOLDER_REF[plataforma]}">
       <input class="valor" type="text" inputmode="decimal" placeholder="Preço (opcional)">
     </div>
     <div class="botoes">
       <button class="btn btn-mini" data-acao="salvar-console">Salvar</button>
       ${plataforma === 'playstation' ? '<button class="btn btn-sec btn-mini" data-acao="buscar-ps">Buscar automático</button>' : ''}
+      ${plataforma === 'xbox' ? '<button class="btn btn-sec btn-mini" data-acao="buscar-xbox">Buscar automático</button>' : ''}
       ${c ? '<button class="btn btn-sec btn-mini" data-acao="remover-console">Remover</button>' : ''}
       ${buscaUrl ? `<a href="${esc(buscaUrl)}" target="_blank" rel="noopener">Abrir busca na loja ↗</a>` : ''}
     </div>
     <div class="aviso-texto">
       ${plataforma === 'switch'
         ? 'Com o link ou NSUID, o preço é buscado e atualizado sozinho (confira na loja). Se digitar o preço, ele fica manual.'
-        : 'A busca automática da PlayStation Store é uma tentativa e pode não funcionar. Se não achar, cole o link ou digite o preço.'}
+        : (plataforma === 'xbox'
+          ? 'A busca automática da loja Xbox é uma tentativa. Se não achar, cole o link do jogo (ou o código de 12 caracteres) ou digite o preço.'
+          : 'A busca automática da PlayStation Store é uma tentativa e pode não funcionar. Se não achar, cole o link ou digite o preço.')}
     </div>
   </div>`;
 }
@@ -594,6 +637,7 @@ function pLojas(j, det) {
     <div class="sub-titulo">Consoles</div>
     ${blocoConsole(j, det, 'playstation', 'PlayStation')}
     ${blocoConsole(j, det, 'switch', 'Nintendo Switch')}
+    ${blocoConsole(j, det, 'xbox', 'Xbox')}
     <div class="sub-titulo">Onde está mais barato (IsThereAnyDeal)</div>
     ${ofertas}
   </div>`;
@@ -638,7 +682,7 @@ function pReview(j) {
 async function executar(acao, dados, textoOk) {
   try {
     const r = await chamarApi(acao, dados);
-    estado.jogos = r.jogos;
+    estado.jogos = normalizarJogos(r.jogos);
     desenhar();
     if (textoOk) mostrarMensagem(textoOk, 'ok');
     return true;
@@ -754,6 +798,11 @@ async function acaoPainel(botao, acao) {
     case 'remover-console':
       await executar('removerConsole', { jogoId, plataforma }, 'Removido.');
       break;
+    case 'buscar-xbox':
+      botao.disabled = true;
+      botao.textContent = 'Buscando...';
+      await executar('buscarXbox', { jogoId }, 'Encontrado na loja Xbox. Confira o preço.');
+      break;
     case 'buscar-ps':
       botao.disabled = true;
       botao.textContent = 'Buscando...';
@@ -809,6 +858,15 @@ document.addEventListener('click', async (ev) => {
 
 montarColagem();
 
+try { estado.ordem = localStorage.getItem('ggl_ordem') || 'padrao'; } catch (e) { /* ignora */ }
+if (!(estado.ordem in ORDENS)) estado.ordem = 'padrao';
+$('ordem').value = estado.ordem;
+$('ordem').addEventListener('change', () => {
+  estado.ordem = $('ordem').value;
+  try { localStorage.setItem('ggl_ordem', estado.ordem); } catch (e) { /* ignora */ }
+  desenhar();
+});
+
 (async function iniciar() {
   let salvo = '';
   try { salvo = localStorage.getItem('ggl_telefone') || ''; } catch (e) { /* ignora */ }
@@ -816,6 +874,8 @@ montarColagem();
   try {
     await entrar(salvo, false);
   } catch (e) {
-    sair(); // telefone salvo deixou de valer
+    // Só volta ao login se o telefone deixou de valer; um erro ao desenhar não deve deslogar
+    if ($('tela-app').hidden) sair();
+    else mostrarMensagem(e.message, 'erro');
   }
 })();
